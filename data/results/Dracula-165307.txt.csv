@@ -1,0 +1,4 @@
+TextFile,SearchWord,Sample,Method,Count,ExecutionTime
+Dracula-165307.txt,the,1,SerialCPU,8101,109
+Dracula-165307.txt,the,1,ParallelCPU,8101,109
+Dracula-165307.txt,the,1,ParallelGPU,327,929
