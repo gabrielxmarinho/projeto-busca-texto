@@ -55,9 +55,9 @@ Abaixo estão os dados obtidos nos testes com as obras literárias, buscando a p
 
 #### Comparação de Métodos (por obra)
 
-![Gráfico Moby Dick](./images/MobyDick_chart.png)
-![Gráfico Don Quixote](./images/DonQuixote_chart.png)
-![Gráfico Dracula](./images/Dracula_chart.png)
+![Gráfico Moby Dick](./data/charts/MobyDick_chart.png)
+![Gráfico Don Quixote](./data/charts/DonQuixote_chart.png)
+![Gráfico Dracula](./data/charts/Dracula_chart.png)
 
 ## ✅ Conclusão
 
