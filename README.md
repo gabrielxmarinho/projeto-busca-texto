@@ -1,91 +1,113 @@
 # 📊 Análise de Desempenho de Algoritmos de Busca em Arquivos de Texto
 
-## 🧾 Resumo
+![Java](https://img.shields.io/badge/language-Java-orange)
+![License](https://img.shields.io/github/license/gabrielxmarinho/projeto-busca-texto)
+![Status](https://img.shields.io/badge/status-finalizado-green)
 
-Este projeto tem como objetivo comparar o desempenho de diferentes abordagens para algoritmos de busca em arquivos de texto: execução sequencial (CPU), paralela (multi-threaded na CPU) e paralela utilizando a GPU (via JCuda). Os tempos de execução e a precisão da contagem foram analisados em diferentes obras literárias, gerando resultados estatísticos e gráficos comparativos.
+## 🧾 Visão Geral
 
-## 🧭 Introdução
+Este projeto compara o desempenho de diferentes abordagens para a busca de palavras em grandes arquivos de texto. Foram avaliadas três estratégias:
 
-O projeto analisa três métodos para contar ocorrências de uma palavra em textos longos:
+- 🔹 **Execução Sequencial (SerialCPU)**  
+- 🔹 **Execução Paralela na CPU (ParallelCPU)**  
+- 🔹 **Execução Paralela na GPU via JOCL (ParallelGPU)**
 
-- **SerialCPU**: abordagem sequencial tradicional utilizando um único thread.
-- **ParallelCPU**: abordagem paralela utilizando múltiplos threads da CPU.
-- **ParallelGPU**: abordagem utilizando a GPU para acelerar a contagem com JCuda.
+A palavra-chave utilizada nos testes foi `"the"`, aplicada a três obras literárias clássicas. Os resultados foram registrados e analisados por meio de gráficos e arquivos CSV.
 
-Esses métodos foram aplicados a três obras literárias: *Moby Dick*, *Dom Quixote* e *Drácula*, buscando a palavra `"the"`.
+---
+
+## 🧭 Objetivo
+
+Avaliar a eficiência e a acurácia das três abordagens de busca mencionadas, utilizando textos com tamanhos variados:
+
+- 📘 *Moby Dick* (~217 mil palavras)
+- 📗 *Dom Quixote* (~388 mil palavras)
+- 📕 *Drácula* (~165 mil palavras)
+
+---
 
 ## 🧪 Metodologia
 
-A metodologia adotada foi a seguinte:
+1. 💻 Implementação dos algoritmos em Java
+2. ⏱ Execução repetida com medições de tempo e contagem
+3. 📂 Armazenamento dos dados em arquivos CSV
+4. 📊 Geração de gráficos comparativos com os dados obtidos
 
-- **Implementação de Algoritmos**: Criação dos três algoritmos de busca mencionados em Java.
-- **Framework de Testes**: Desenvolvimento de uma estrutura de testes para medir tempos de execução e registrar contagens.
-- **Execução em Ambientes Variados**: Testes foram realizados em arquivos de diferentes tamanhos para simular diferentes cargas de trabalho.
-- **Registro de Dados**: Armazenamento dos dados em arquivos CSV.
-- **Análise Estatística**: Cálculo de médias de execução e análise da acurácia da contagem.
-- **Visualização**: Geração de gráficos para ilustrar comparações de performance.
+---
 
-## 📈 Resultados e Discussão
+## 📈 Resultados
 
-Abaixo estão os dados obtidos nos testes com as obras literárias, buscando a palavra `"the"`:
+| 📄 Obra               | ⚙️ Método      | 🔢 Ocorrências | ⏱ Tempo (ms) |
+|----------------------|---------------|----------------|---------------|
+| **Moby Dick**        | SerialCPU     | 14.715         | 102           |
+|                      | ParallelCPU   | 14.715         | 91            |
+|                      | ParallelGPU   | 14.512         | 1121          |
+| **Dom Quixote**      | SerialCPU     | 188            | 141           |
+|                      | ParallelCPU   | 188            | 128           |
+|                      | ParallelGPU   | 186            | 1081          |
+| **Drácula**          | SerialCPU     | 8.101          | 102           |
+|                      | ParallelCPU   | 8.101          | 70            |
+|                      | ParallelGPU   | 7.997          | 965           |
 
-| TextFile              | Method      | Count | Execution Time (ms) |
-|-----------------------|-------------|-------|----------------------|
-| MobyDick-217452.txt   | SerialCPU   | 14715 | 102                  |
-|                       | ParallelCPU | 14715 | 91                   |
-|                       | ParallelGPU | 14512 | 1121                 |
-| DonQuixote-388208.txt | SerialCPU   | 188   | 141                  |
-|                       | ParallelCPU | 188   | 128                  |
-|                       | ParallelGPU | 186   | 1081                 |
-| Dracula-165307.txt    | SerialCPU   | 8101  | 102                  |
-|                       | ParallelCPU | 8101  | 70                   |
-|                       | ParallelGPU | 7997  | 965                  |
+---
 
-### 💬 Observações
+## 💬 Discussão
 
-- A abordagem **ParallelCPU** mostrou-se consistentemente mais rápida que a **SerialCPU**, mantendo a precisão dos resultados.
-- A abordagem **ParallelGPU**, embora promissora, apresentou resultados imprecisos na contagem e tempos de execução superiores, possivelmente por sobrecarga na comunicação com a GPU ou limitações da biblioteca JCuda.
-- A precisão da contagem foi significativamente afetada no método GPU, o que compromete sua confiabilidade nos testes atuais.
+- ✅ **ParallelCPU** foi o método mais eficiente, com ganhos claros de performance e sem perda de precisão.
+- 🐢 **SerialCPU** é confiável, porém naturalmente mais lenta.
+- ⚠️ **ParallelGPU** apresentou inconsistências nas contagens e tempos de execução superiores à versão sequencial em alguns testes, sugerindo que o overhead de comunicação e limitações do modelo de paralelismo via OpenCL podem ter impactado negativamente o desempenho.
 
-### 📊 Gráficos
+---
 
-#### Comparação de Tempo de Execução
+## 📊 Visualizações
 
+### 🔽 Tempo de Execução por Método
 ![Gráfico de Performance - Tempo de Execução](./data/charts/performance_comparison.png)
 
-#### Comparação de Métodos (por obra)
-
+### 📘 Moby Dick  
 ![Gráfico Moby Dick](./data/charts/MobyDick_chart.png)
+
+### 📗 Don Quixote  
 ![Gráfico Don Quixote](./data/charts/DonQuixote_chart.png)
+
+### 📕 Drácula  
 ![Gráfico Dracula](./data/charts/Dracula_chart.png)
+
+---
 
 ## ✅ Conclusão
 
-A análise dos testes evidencia que:
+- **ParallelCPU** foi o destaque, conciliando rapidez e precisão.
+- **SerialCPU** é adequada para cenários simples.
+- **ParallelGPU**, embora promissora, exige refinamentos para entregar vantagem real neste tipo de tarefa textual.
 
-- O **ParallelCPU** é a abordagem mais eficiente e precisa para a tarefa de busca em texto.
-- O **SerialCPU** é confiável, mas mais lento.
-- O **ParallelGPU**, apesar do potencial de paralelismo massivo, apresentou problemas de acurácia e não obteve desempenho superior ao ParallelCPU nas condições testadas.
-
-A abordagem paralela na CPU representa o melhor custo-benefício neste experimento.
+---
 
 ## 📚 Referências
 
-- Oracle Java Documentation – https://docs.oracle.com/javase/
-- JCuda – https://www.jcuda.org/
-- Project Gutenberg (para os textos) – https://www.gutenberg.org/
+- [📘 Oracle Java Documentation](https://docs.oracle.com/javase/)
+- [🚀 JOCL – Java bindings for OpenCL](http://www.jocl.org/)
+- [📚 Project Gutenberg – Obras literárias](https://www.gutenberg.org/)
 
-## 📎 Anexos
+---
 
-### Códigos das Implementações
+## 📎 Estrutura do Projeto
 
-Os principais arquivos do projeto estão listados abaixo:
+| Arquivo                  | Função                                                                 |
+|--------------------------|------------------------------------------------------------------------|
+| `PerformanceAnalyzer.java` | Coordena a execução dos testes                                       |
+| `SearchStrategies.java`    | Implementa as versões Serial, Paralela na CPU e GPU                  |
+| `CSVGenerator.java`        | Gera arquivos CSV com os resultados coletados                        |
+| `ChartGenerator.java`      | Cria gráficos a partir dos dados dos testes                          |
 
-- `PerformanceAnalyzer.java` – Classe responsável pela execução dos testes.
-- `SearchStrategies.java` – Contém as implementações de busca Serial, Paralela CPU e Paralela GPU.
-- `CSVGenerator.java` – Gera os arquivos CSV com os dados de teste.
-- `ChartGenerator.java` – Gera os gráficos de desempenho.
+---
 
-### 📦 Link do Projeto no GitHub
+## 📦 Repositório
 
-> 🔗 [Acesse o repositório completo no GitHub](https://github.com/gabrielxmarinho/projeto-busca-texto)
+🔗 Acesse o projeto completo no GitHub:  
+**[github.com/gabrielxmarinho/projeto-busca-texto](https://github.com/gabrielxmarinho/projeto-busca-texto)**
+
+---
+
+🛠 Desenvolvido com foco em análise de performance e computação paralela para tarefas textuais.
+
