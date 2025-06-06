@@ -1,4 +1,4 @@
 TextFile,SearchWord,Sample,Method,Count,ExecutionTime
-DonQuixote-388208.txt,the,1,SerialCPU,188,153
-DonQuixote-388208.txt,the,1,ParallelCPU,188,118
-DonQuixote-388208.txt,the,1,ParallelGPU,0,993
+DonQuixote-388208.txt,the,1,SerialCPU,188,141
+DonQuixote-388208.txt,the,1,ParallelCPU,188,128
+DonQuixote-388208.txt,the,1,ParallelGPU,186,1081

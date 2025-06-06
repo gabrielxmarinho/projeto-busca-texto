@@ -116,7 +116,7 @@ public class SearchAlgorithms {
      */
     public static void main(String[] args) {
     try {
-        String textFile = "MobyDick-217452.txt";
+        String textFile = "DonQuixote-388208.txt";
         String path = "src\\main\\resources\\sample_texts\\" + textFile;
         String text = loadTextFromFile(path);
         String searchWord = "the";

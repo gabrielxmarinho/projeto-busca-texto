@@ -2,6 +2,7 @@ import org.jocl.*;
 import static org.jocl.CL.*;
 import java.io.*;
 import java.nio.file.*;
+import java.util.*;
 
 public class OpenCLWordCounter {
     
@@ -27,6 +28,7 @@ public class OpenCLWordCounter {
             cl_device_id[] devices = new cl_device_id[1];
             try {
                 clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, 1, devices, null);
+                System.out.println("Usando GPU");
             } catch (Exception e) {
                 System.out.println("GPU não disponível, usando CPU");
                 clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_CPU, 1, devices, null);
@@ -41,10 +43,21 @@ public class OpenCLWordCounter {
             String kernelSource = loadKernelSource();
             program = clCreateProgramWithSource(context, 1, 
                     new String[]{kernelSource}, null, null);
-            clBuildProgram(program, 0, null, null, null, null);
+            
+            int buildResult = clBuildProgram(program, 0, null, null, null, null);
+            if (buildResult != CL_SUCCESS) {
+                // Obter log de build em caso de erro
+                long[] logSize = new long[1];
+                clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, null, logSize);
+                byte[] log = new byte[(int)logSize[0]];
+                clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, logSize[0], Pointer.to(log), null);
+                System.err.println("Erro de build: " + new String(log));
+                throw new RuntimeException("Falha ao compilar kernels");
+            }
             
         } catch (Exception e) {
             System.err.println("Erro ao inicializar OpenCL: " + e.getMessage());
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
     }
@@ -54,6 +67,7 @@ public class OpenCLWordCounter {
             return countWordsOptimized(text, searchWord);
         } catch (Exception e) {
             System.err.println("Erro no processamento GPU, tentando método simples: " + e.getMessage());
+            e.printStackTrace();
             return countWordsSimple(text, searchWord);
         }
     }
@@ -63,20 +77,32 @@ public class OpenCLWordCounter {
         text = text.toLowerCase();
         searchWord = searchWord.toLowerCase();
         
-        // Pré-processar: encontrar boundaries das palavras
-        String[] words = text.split("\\W+");
-        int[] wordBoundaries = new int[words.length];
-        int currentPos = 0;
+        // Pré-processar: encontrar palavras usando regex mais precisa
+        String[] words = text.split("[\\s\\p{Punct}]+");
+        List<String> validWords = new ArrayList<>();
+        List<Integer> wordPositions = new ArrayList<>();
         
-        for (int i = 0; i < words.length; i++) {
-            // Encontrar posição da palavra no texto original
-            while (currentPos < text.length() && 
-                   !Character.isLetterOrDigit(text.charAt(currentPos))) {
-                currentPos++;
+        // Encontrar posições das palavras válidas
+        int currentPos = 0;
+        for (String word : words) {
+            if (!word.isEmpty()) {
+                // Encontrar a posição real da palavra no texto
+                int wordPos = text.indexOf(word, currentPos);
+                if (wordPos >= 0) {
+                    validWords.add(word);
+                    wordPositions.add(wordPos);
+                    currentPos = wordPos + word.length();
+                }
             }
-            wordBoundaries[i] = currentPos;
-            currentPos += words[i].length();
         }
+        
+        if (validWords.isEmpty()) {
+            return 0;
+        }
+        
+        // Converter para arrays
+        int[] wordBoundaries = wordPositions.stream().mapToInt(i -> i).toArray();
+        int[] wordLengths = validWords.stream().mapToInt(String::length).toArray();
         
         // Criar buffers OpenCL
         byte[] textBytes = text.getBytes();
@@ -96,9 +122,14 @@ public class OpenCLWordCounter {
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
             Sizeof.cl_int * wordBoundaries.length, 
             Pointer.to(wordBoundaries), null);
+            
+        cl_mem lengthsBuffer = clCreateBuffer(context, 
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            Sizeof.cl_int * wordLengths.length, 
+            Pointer.to(wordLengths), null);
         
         // Buffer para resultados (um por palavra)
-        int[] results = new int[words.length];
+        int[] results = new int[validWords.size()];
         cl_mem resultsBuffer = clCreateBuffer(context, 
             CL_MEM_WRITE_ONLY,
             Sizeof.cl_int * results.length, null, null);
@@ -111,12 +142,16 @@ public class OpenCLWordCounter {
         clSetKernelArg(kernel, 2, Sizeof.cl_mem, Pointer.to(searchBuffer));
         clSetKernelArg(kernel, 3, Sizeof.cl_int, Pointer.to(new int[]{searchBytes.length}));
         clSetKernelArg(kernel, 4, Sizeof.cl_mem, Pointer.to(boundariesBuffer));
-        clSetKernelArg(kernel, 5, Sizeof.cl_int, Pointer.to(new int[]{words.length}));
-        clSetKernelArg(kernel, 6, Sizeof.cl_mem, Pointer.to(resultsBuffer));
+        clSetKernelArg(kernel, 5, Sizeof.cl_mem, Pointer.to(lengthsBuffer));
+        clSetKernelArg(kernel, 6, Sizeof.cl_int, Pointer.to(new int[]{validWords.size()}));
+        clSetKernelArg(kernel, 7, Sizeof.cl_mem, Pointer.to(resultsBuffer));
         
         // Executar kernel
-        long[] globalWorkSize = {words.length};
+        long[] globalWorkSize = {validWords.size()};
         clEnqueueNDRangeKernel(queue, kernel, 1, null, globalWorkSize, null, 0, null, null);
+        
+        // Aguardar conclusão
+        clFinish(queue);
         
         // Ler resultados
         clEnqueueReadBuffer(queue, resultsBuffer, CL_TRUE, 0, 
@@ -128,10 +163,19 @@ public class OpenCLWordCounter {
             totalCount += count;
         }
         
+        // Debug: mostrar palavras encontradas
+        System.out.printf("Debug: Processando %d palavras, buscando '%s'%n", validWords.size(), searchWord);
+        for (int i = 0; i < validWords.size(); i++) {
+            if (results[i] > 0) {
+                System.out.printf("  Encontrada: '%s' na posição %d%n", validWords.get(i), wordBoundaries[i]);
+            }
+        }
+        
         // Limpeza
         clReleaseMemObject(textBuffer);
         clReleaseMemObject(searchBuffer);
         clReleaseMemObject(boundariesBuffer);
+        clReleaseMemObject(lengthsBuffer);
         clReleaseMemObject(resultsBuffer);
         clReleaseKernel(kernel);
         
@@ -139,6 +183,8 @@ public class OpenCLWordCounter {
     }
     
     private int countWordsSimple(String text, String searchWord) {
+        System.out.println("Usando método simples de fallback");
+        
         // Converter para minúsculas
         text = text.toLowerCase();
         searchWord = searchWord.toLowerCase();
@@ -157,8 +203,8 @@ public class OpenCLWordCounter {
             Sizeof.cl_char * searchBytes.length, 
             Pointer.to(searchBytes), null);
         
-        // Buffer para resultado único
-        int[] result = new int[1];
+        // Buffer para resultado único - inicializar com zero
+        int[] result = new int[]{0};
         cl_mem resultBuffer = clCreateBuffer(context, 
             CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
             Sizeof.cl_int, Pointer.to(result), null);
@@ -173,8 +219,11 @@ public class OpenCLWordCounter {
         clSetKernelArg(kernel, 4, Sizeof.cl_mem, Pointer.to(resultBuffer));
         
         // Executar kernel
-        long[] globalWorkSize = {textBytes.length};
+        long[] globalWorkSize = {Math.max(1, textBytes.length - searchBytes.length + 1)};
         clEnqueueNDRangeKernel(queue, kernel, 1, null, globalWorkSize, null, 0, null, null);
+        
+        // Aguardar conclusão
+        clFinish(queue);
         
         // Ler resultado
         clEnqueueReadBuffer(queue, resultBuffer, CL_TRUE, 0, 
@@ -210,32 +259,33 @@ public class OpenCLWordCounter {
                                     __global const char* searchWord,
                                     const int searchLength,
                                     __global const int* wordBoundaries,
+                                    __global const int* wordLengths,
                                     const int numWords,
                                     __global int* results) {
                 
                 int gid = get_global_id(0);
-                int localCount = 0;
                 
                 if (gid < numWords) {
                     int wordStart = wordBoundaries[gid];
-                    int wordEnd = (gid < numWords - 1) ? wordBoundaries[gid + 1] : textLength;
-                    int wordLength = wordEnd - wordStart;
+                    int wordLength = wordLengths[gid];
                     
+                    // Verificar se os comprimentos coincidem
                     if (wordLength == searchLength) {
                         bool match = true;
+                        // Comparar caractere por caractere
                         for (int i = 0; i < searchLength; i++) {
-                            if (text[wordStart + i] != searchWord[i]) {
+                            if (wordStart + i >= textLength || text[wordStart + i] != searchWord[i]) {
                                 match = false;
                                 break;
                             }
                         }
-                        if (match) {
-                            localCount = 1;
-                        }
+                        results[gid] = match ? 1 : 0;
+                    } else {
+                        results[gid] = 0;
                     }
+                } else {
+                    results[gid] = 0;
                 }
-                
-                results[gid] = localCount;
             }
             
             __kernel void countWordsSimple(__global const char* text,
@@ -247,14 +297,19 @@ public class OpenCLWordCounter {
                 int gid = get_global_id(0);
                 
                 if (gid <= textLength - searchLength) {
+                    // Verificar se estamos no início de uma palavra
                     bool isWordStart = (gid == 0) || 
                                       (text[gid - 1] == ' ' || text[gid - 1] == '\\t' || 
                                        text[gid - 1] == '\\n' || text[gid - 1] == '\\r' ||
                                        text[gid - 1] == '.' || text[gid - 1] == ',' ||
                                        text[gid - 1] == ';' || text[gid - 1] == ':' ||
-                                       text[gid - 1] == '!' || text[gid - 1] == '?');
+                                       text[gid - 1] == '!' || text[gid - 1] == '?' ||
+                                       text[gid - 1] == '(' || text[gid - 1] == ')' ||
+                                       text[gid - 1] == '[' || text[gid - 1] == ']' ||
+                                       text[gid - 1] == '{' || text[gid - 1] == '}');
                     
                     if (isWordStart) {
+                        // Verificar se a palavra coincide
                         bool match = true;
                         for (int i = 0; i < searchLength; i++) {
                             if (text[gid + i] != searchWord[i]) {
@@ -263,17 +318,26 @@ public class OpenCLWordCounter {
                             }
                         }
                         
-                        if (match && (gid + searchLength >= textLength || 
-                                     text[gid + searchLength] == ' ' || 
-                                     text[gid + searchLength] == '\\t' ||
-                                     text[gid + searchLength] == '\\n' || 
-                                     text[gid + searchLength] == '\\r' ||
-                                     text[gid + searchLength] == '.' || 
-                                     text[gid + searchLength] == ',' ||
-                                     text[gid + searchLength] == ';' || 
-                                     text[gid + searchLength] == ':' ||
-                                     text[gid + searchLength] == '!' || 
-                                     text[gid + searchLength] == '?')) {
+                        // Verificar se estamos no final de uma palavra
+                        bool isWordEnd = (gid + searchLength >= textLength || 
+                                         text[gid + searchLength] == ' ' || 
+                                         text[gid + searchLength] == '\\t' ||
+                                         text[gid + searchLength] == '\\n' || 
+                                         text[gid + searchLength] == '\\r' ||
+                                         text[gid + searchLength] == '.' || 
+                                         text[gid + searchLength] == ',' ||
+                                         text[gid + searchLength] == ';' || 
+                                         text[gid + searchLength] == ':' ||
+                                         text[gid + searchLength] == '!' || 
+                                         text[gid + searchLength] == '?' ||
+                                         text[gid + searchLength] == '(' || 
+                                         text[gid + searchLength] == ')' ||
+                                         text[gid + searchLength] == '[' || 
+                                         text[gid + searchLength] == ']' ||
+                                         text[gid + searchLength] == '{' || 
+                                         text[gid + searchLength] == '}');
+                        
+                        if (match && isWordEnd) {
                             atomic_inc(result);
                         }
                     }
@@ -296,18 +360,37 @@ public class OpenCLWordCounter {
     
     // Método de teste
     public static void main(String[] args) {
-        OpenCLWordCounter counter = new OpenCLWordCounter();
-        
-        String testText = "The quick brown fox jumps over the lazy dog. The dog was very lazy.";
-        String searchWord = "the";
-        
-        long startTime = System.currentTimeMillis();
-        int count = counter.countWords(testText, searchWord);
-        long endTime = System.currentTimeMillis();
-        
-        System.out.printf("ParallelGPU: %d ocorrências em %d ms%n", 
-                         count, endTime - startTime);
-        
-        counter.cleanup();
+        try {
+            OpenCLWordCounter counter = new OpenCLWordCounter();
+            
+            String testText = "The quick brown fox jumps over the lazy dog. The dog was very lazy.";
+            String searchWord = "the";
+            
+            System.out.printf("Texto: '%s'%n", testText);
+            System.out.printf("Buscando: '%s'%n", searchWord);
+            
+            long startTime = System.currentTimeMillis();
+            int count = counter.countWords(testText, searchWord);
+            long endTime = System.currentTimeMillis();
+            
+            System.out.printf("Resultado: %d ocorrências em %d ms%n", 
+                             count, endTime - startTime);
+            
+            // Teste adicional com método Java puro para comparação
+            String[] words = testText.toLowerCase().split("[\\s\\p{Punct}]+");
+            int javaCount = 0;
+            for (String word : words) {
+                if (word.equals(searchWord.toLowerCase())) {
+                    javaCount++;
+                }
+            }
+            System.out.printf("Comparação Java: %d ocorrências%n", javaCount);
+            
+            counter.cleanup();
+            
+        } catch (Exception e) {
+            System.err.println("Erro no teste: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

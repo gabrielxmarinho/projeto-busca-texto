@@ -1,4 +1,4 @@
 TextFile,SearchWord,Sample,Method,Count,ExecutionTime
-MobyDick-217452.txt,the,1,SerialCPU,14715,114
-MobyDick-217452.txt,the,1,ParallelCPU,14715,72
-MobyDick-217452.txt,the,1,ParallelGPU,426,925
+MobyDick-217452.txt,the,1,SerialCPU,14715,102
+MobyDick-217452.txt,the,1,ParallelCPU,14715,91
+MobyDick-217452.txt,the,1,ParallelGPU,14512,1121
