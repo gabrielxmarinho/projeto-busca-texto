@@ -31,15 +31,15 @@ Abaixo estão os dados obtidos nos testes com as obras literárias, buscando a p
 
 | TextFile              | Method      | Count | Execution Time (ms) |
 |-----------------------|-------------|-------|----------------------|
-| MobyDick-217452.txt   | SerialCPU   | 14715 | 114                  |
-|                       | ParallelCPU | 14715 | 72                   |
-|                       | ParallelGPU | 426   | 925                  |
-| DonQuixote-388208.txt | SerialCPU   | 188   | 153                  |
-|                       | ParallelCPU | 188   | 118                  |
-|                       | ParallelGPU | 0     | 993                  |
-| Dracula-165307.txt    | SerialCPU   | 8101  | 109                  |
-|                       | ParallelCPU | 8101  | 109                  |
-|                       | ParallelGPU | 327   | 929                  |
+| MobyDick-217452.txt   | SerialCPU   | 14715 | 102                  |
+|                       | ParallelCPU | 14715 | 91                   |
+|                       | ParallelGPU | 14512 | 1121                 |
+| DonQuixote-388208.txt | SerialCPU   | 188   | 141                  |
+|                       | ParallelCPU | 188   | 128                  |
+|                       | ParallelGPU | 186   | 1081                 |
+| Dracula-165307.txt    | SerialCPU   | 8101  | 102                  |
+|                       | ParallelCPU | 8101  | 70                   |
+|                       | ParallelGPU | 7997  | 965                  |
 
 ### 💬 Observações
 
